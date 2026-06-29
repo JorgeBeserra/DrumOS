@@ -11,6 +11,8 @@ namespace DrumOS {
 namespace Trigger {
 
 static int scopePad = -1;
+static int lastScopeValue = -1;
+static bool firstScopePrint = true;
 
 void begin() {
   scopePad = -1;
@@ -82,15 +84,41 @@ void process() {
   }
 
   static unsigned long lastScope = 0;
+  static int lastScopeValue = -1;
+  static bool firstScopePrint = true;
+
+  const int SCOPE_ZERO_VALUE = 20;
+  const int SCOPE_DELTA = 10;
 
   if (scopePad >= 0 && now - lastScope > 20) {
     lastScope = now;
 
     int value = adc1_get_raw(DrumOS::Pads::pads[scopePad].adc);
 
-    Serial.print(DrumOS::Pads::pads[scopePad].name);
-    Serial.print(": ");
-    Serial.println(value);
+    if (value <= SCOPE_ZERO_VALUE) {
+      value = 0;
+    }
+
+    bool shouldPrint = false;
+
+    if (firstScopePrint) {
+      shouldPrint = true;
+      firstScopePrint = false;
+    } else if (lastScopeValue == 0 && value > 0) {
+      shouldPrint = true;
+    } else if (lastScopeValue > 0 && value == 0) {
+      shouldPrint = true;
+    } else if (value > 0 && abs(value - lastScopeValue) >= SCOPE_DELTA) {
+      shouldPrint = true;
+    }
+
+    if (shouldPrint) {
+      Serial.print(DrumOS::Pads::pads[scopePad].name);
+      Serial.print(": ");
+      Serial.println(value);
+
+      lastScopeValue = value;
+    }
   }
 }
 
@@ -100,6 +128,9 @@ void setScopePad(int pad) {
   } else {
     scopePad = -1;
   }
+
+  lastScopeValue = -1;
+  firstScopePrint = true;
 }
 
 int getScopePad() {
