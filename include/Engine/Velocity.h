@@ -11,7 +11,7 @@ enum Curve {
   HARD
 };
 
-int apply(int raw, int threshold, Curve curve);
+int apply(int raw, int threshold, int peakMax, Curve curve);
 
 }
 }
