@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "Core/Version.h"
+#include "Core/Preferences.h"
 #include "Engine/Audio.h"
 #include "Modules/Click.h"
 #include "Engine/Pads.h"
@@ -29,6 +30,10 @@ void begin() {
 
   Serial.println("Inicializando Pads...");
   Pads::begin();
+
+  Serial.println("Inicializando ConfigStore...");
+  ConfigStore::begin();
+  ConfigStore::loadPads();
 
   Serial.println("Inicializando Trigger...");
   Trigger::begin();
