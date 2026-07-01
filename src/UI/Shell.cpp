@@ -22,6 +22,7 @@ static void printHelp() {
   Serial.println("kick 120            = volume do bumbo 0-127");
   Serial.println("snare 100           = volume da caixa 0-127");
   Serial.println("thr kick 550        = threshold do pad");
+  Serial.println("max kick 2100       = peak maximo para velocity 127");
   Serial.println("deb kick 90         = debounce/mask do pad em ms");
   Serial.println("scan kick 5         = janela de captura do peak em ms");
   Serial.println("curve kick soft     = curva: soft, linear, hard");
@@ -65,6 +66,18 @@ static bool parseCurve(const String& text, DrumOS::Velocity::Curve& curve) {
   return false;
 }
 
+static bool parsePadValue(const String& rest, String& padText, int& value) {
+  int space2 = rest.indexOf(' ');
+
+  if (space2 < 0) {
+    return false;
+  }
+
+  padText = rest.substring(0, space2);
+  value = rest.substring(space2 + 1).toInt();
+  return true;
+}
+
 static void handleCommand(String cmd) {
   cmd.trim();
   cmd.toLowerCase();
@@ -94,6 +107,8 @@ static void handleCommand(String cmd) {
       Serial.print(p.volume);
       Serial.print(" threshold=");
       Serial.print(p.threshold);
+      Serial.print(" peakMax=");
+      Serial.print(p.peakMax);
       Serial.print(" debounce=");
       Serial.print(p.debounceMs);
       Serial.print(" scan=");
@@ -164,15 +179,13 @@ static void handleCommand(String cmd) {
   }
 
   if (a == "thr") {
-    int space2 = rest.indexOf(' ');
+    String padText;
+    int value;
 
-    if (space2 < 0) {
-      Serial.println("Uso: thr kick 1200");
+    if (!parsePadValue(rest, padText, value)) {
+      Serial.println("Uso: thr kick 550");
       return;
     }
-
-    String padText = rest.substring(0, space2);
-    int value = rest.substring(space2 + 1).toInt();
 
     int pad = DrumOS::Pads::findByName(padText);
 
@@ -183,6 +196,10 @@ static void handleCommand(String cmd) {
 
     DrumOS::Pads::pads[pad].threshold = constrain(value, 0, 4095);
 
+    if (DrumOS::Pads::pads[pad].peakMax <= DrumOS::Pads::pads[pad].threshold) {
+      DrumOS::Pads::pads[pad].peakMax = constrain(DrumOS::Pads::pads[pad].threshold + 1, 1, 4095);
+    }
+
     Serial.print("Threshold ");
     Serial.print(DrumOS::Pads::pads[pad].name);
     Serial.print(" = ");
@@ -190,16 +207,40 @@ static void handleCommand(String cmd) {
     return;
   }
 
-  if (a == "deb") {
-    int space2 = rest.indexOf(' ');
+  if (a == "max") {
+    String padText;
+    int value;
 
-    if (space2 < 0) {
-      Serial.println("Uso: deb kick 90");
+    if (!parsePadValue(rest, padText, value)) {
+      Serial.println("Uso: max kick 2100");
       return;
     }
 
-    String padText = rest.substring(0, space2);
-    int value = rest.substring(space2 + 1).toInt();
+    int pad = DrumOS::Pads::findByName(padText);
+
+    if (pad < 0) {
+      Serial.println("Pad invalido");
+      return;
+    }
+
+    int minValue = DrumOS::Pads::pads[pad].threshold + 1;
+    DrumOS::Pads::pads[pad].peakMax = constrain(value, minValue, 4095);
+
+    Serial.print("PeakMax ");
+    Serial.print(DrumOS::Pads::pads[pad].name);
+    Serial.print(" = ");
+    Serial.println(DrumOS::Pads::pads[pad].peakMax);
+    return;
+  }
+
+  if (a == "deb") {
+    String padText;
+    int value;
+
+    if (!parsePadValue(rest, padText, value)) {
+      Serial.println("Uso: deb kick 90");
+      return;
+    }
 
     int pad = DrumOS::Pads::findByName(padText);
 
@@ -219,15 +260,13 @@ static void handleCommand(String cmd) {
   }
 
   if (a == "scan") {
-    int space2 = rest.indexOf(' ');
+    String padText;
+    int value;
 
-    if (space2 < 0) {
+    if (!parsePadValue(rest, padText, value)) {
       Serial.println("Uso: scan kick 5");
       return;
     }
-
-    String padText = rest.substring(0, space2);
-    int value = rest.substring(space2 + 1).toInt();
 
     int pad = DrumOS::Pads::findByName(padText);
 
@@ -244,7 +283,7 @@ static void handleCommand(String cmd) {
     Serial.print(DrumOS::Pads::pads[pad].scanMs);
     Serial.println(" ms");
     return;
-  }  
+  }
 
   if (a == "curve") {
     int space2 = rest.indexOf(' ');
@@ -329,7 +368,6 @@ void process() {
   while (Serial.available()) {
     char c = Serial.read();
 
-    // Enter: executa comando
     if (c == '\n' || c == '\r') {
       if (pos == 0) {
         continue;
@@ -348,29 +386,22 @@ void process() {
       continue;
     }
 
-    // Backspace
     if (c == 8 || c == 127) {
       if (pos > 0) {
         pos--;
         line[pos] = '\0';
-
-        // Apaga visualmente no terminal
         Serial.print("\b \b");
       }
       continue;
     }
 
-    // Ignora caracteres não imprimíveis
     if (c < 32 || c > 126) {
       continue;
     }
 
-    // Guarda caractere
     if (pos < sizeof(line) - 1) {
       line[pos++] = c;
       line[pos] = '\0';
-
-      // Ecoa a letra no terminal
       Serial.write(c);
     }
   }
