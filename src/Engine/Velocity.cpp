@@ -28,8 +28,8 @@ int apply(int raw, int threshold, Curve curve) {
       break;
   }
 
-  int velocity = 15 + (int)(y * 112.0f);
-  return constrain(velocity, 15, 127);
+  int velocity = 8 + (int)(y * 119.0f);
+  return constrain(velocity, 8, 127);
 }
 
 }

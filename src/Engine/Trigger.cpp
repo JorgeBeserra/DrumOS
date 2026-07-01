@@ -23,13 +23,11 @@ void triggerPad(int pad, int peak) {
 
   auto& p = DrumOS::Pads::pads[pad];
 
-  int velocity = DrumOS::Velocity::apply(
-    peak,
-    p.threshold,
-    p.curve
-  );
+  int velocity = DrumOS::Velocity::apply(peak, p.threshold, p.curve);
 
-  int volume = (velocity * p.volume) / 127;
+  int dynamicVolume = (velocity * 2 + ((velocity * velocity) / 127)) / 3;
+  int volume = (dynamicVolume * p.volume) / 127;
+  volume = constrain(volume, 1, 127);
 
   DrumOS::Audio::playBuffer(
     DrumOS::Voices::getBuffer(pad),
@@ -41,7 +39,9 @@ void triggerPad(int pad, int peak) {
   Serial.print(" peak=");
   Serial.print(peak);
   Serial.print(" velocity=");
-  Serial.println(velocity);
+  Serial.print(velocity);
+  Serial.print(" volume=");
+  Serial.println(volume);
 }
 
 void process() {
