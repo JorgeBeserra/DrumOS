@@ -41,6 +41,8 @@ struct PadConfig {
 extern PadConfig pads[PAD_COUNT];
 
 void begin();
+void resetToDefaults();
+void resetRuntimeState(int pad);
 int findByName(String name);
 
 }
