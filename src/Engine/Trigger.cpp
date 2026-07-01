@@ -18,8 +18,16 @@ static int lastTriggeredPad = -1;
 static int lastTriggeredPeak = 0;
 static unsigned long lastTriggeredAt = 0;
 
+static int previousValue[DrumOS::Pads::PAD_COUNT];
+static int fallingCount[DrumOS::Pads::PAD_COUNT];
+
 static const unsigned long CROSSTALK_WINDOW_MS = 25;
 static const int CROSSTALK_RATIO_PERCENT = 45;
+
+static const unsigned long MIN_PEAK_SCAN_MS = 2;
+static const int MIN_PEAK_FALL_DELTA = 24;
+static const int PEAK_FALL_PERCENT = 4;
+static const int REQUIRED_FALLING_SAMPLES = 1;
 
 static bool isCrosstalk(int pad, int peak, unsigned long now) {
   if (lastTriggeredPad < 0) return false;
@@ -44,11 +52,47 @@ static bool isCrosstalk(int pad, int peak, unsigned long now) {
   return false;
 }
 
+static bool hasPeakStartedFalling(int pad, int value, unsigned long elapsedMs) {
+  if (elapsedMs < MIN_PEAK_SCAN_MS) return false;
+
+  auto& p = DrumOS::Pads::pads[pad];
+  int fallDelta = max(MIN_PEAK_FALL_DELTA, (p.peak * PEAK_FALL_PERCENT) / 100);
+
+  if (previousValue[pad] - value >= fallDelta || p.peak - value >= fallDelta) {
+    fallingCount[pad]++;
+  } else {
+    fallingCount[pad] = 0;
+  }
+
+  return fallingCount[pad] >= REQUIRED_FALLING_SAMPLES;
+}
+
+static void finishPeakScan(int pad, unsigned long now) {
+  auto& p = DrumOS::Pads::pads[pad];
+
+  if (!isCrosstalk(pad, p.peak, now)) {
+    triggerPad(pad, p.peak);
+    lastTriggeredPad = pad;
+    lastTriggeredPeak = p.peak;
+    lastTriggeredAt = now;
+  }
+
+  p.timer = now;
+  p.state = DrumOS::Pads::MASK_TIME;
+  fallingCount[pad] = 0;
+  previousValue[pad] = 0;
+}
+
 void begin() {
   scopePad = -1;
   lastTriggeredPad = -1;
   lastTriggeredPeak = 0;
   lastTriggeredAt = 0;
+
+  for (int i = 0; i < DrumOS::Pads::PAD_COUNT; i++) {
+    previousValue[i] = 0;
+    fallingCount[i] = 0;
+  }
 }
 
 void triggerPad(int pad, int peak) {
@@ -92,31 +136,36 @@ void process() {
         if (value > p.threshold) {
           p.peak = value;
           p.timer = now;
+          previousValue[i] = value;
+          fallingCount[i] = 0;
           p.state = DrumOS::Pads::WAIT_PEAK;
         }
         break;
 
-      case DrumOS::Pads::WAIT_PEAK:
+      case DrumOS::Pads::WAIT_PEAK: {
+        unsigned long elapsed = now - p.timer;
+
         if (value > p.peak) {
           p.peak = value;
+          fallingCount[i] = 0;
         }
 
-        if (now - p.timer >= (unsigned long)p.scanMs) {
-          if (!isCrosstalk(i, p.peak, now)) {
-            triggerPad(i, p.peak);
-            lastTriggeredPad = i;
-            lastTriggeredPeak = p.peak;
-            lastTriggeredAt = now;
-          }
+        bool peakStartedFalling = hasPeakStartedFalling(i, value, elapsed);
+        bool scanTimedOut = elapsed >= (unsigned long)p.scanMs;
 
-          p.timer = now;
-          p.state = DrumOS::Pads::MASK_TIME;
+        previousValue[i] = value;
+
+        if (peakStartedFalling || scanTimedOut) {
+          finishPeakScan(i, now);
         }
         break;
+      }
 
       case DrumOS::Pads::MASK_TIME:
         if (now - p.timer >= (unsigned long)p.debounceMs) {
           p.peak = 0;
+          previousValue[i] = 0;
+          fallingCount[i] = 0;
           p.state = DrumOS::Pads::IDLE;
         }
         break;
