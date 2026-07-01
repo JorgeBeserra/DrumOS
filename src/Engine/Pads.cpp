@@ -3,7 +3,7 @@
 namespace DrumOS {
 namespace Pads {
 
-PadConfig pads[PAD_COUNT] = {
+static const PadConfig defaultPads[PAD_COUNT] = {
   // name      adc             thr   max   vol  deb scan last state timer peak curve
   {"KICK",    ADC1_CHANNEL_4,  550,  2100, 127, 90,  10, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
   {"SNARE",   ADC1_CHANNEL_5,  500,  2400, 120, 80,  5,  0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
@@ -13,15 +13,31 @@ PadConfig pads[PAD_COUNT] = {
   {"LOW-TOM", ADC1_CHANNEL_3,  500,  2400, 110, 80,  5,  0, IDLE, 0, 0, DrumOS::Velocity::LINEAR}
 };
 
+PadConfig pads[PAD_COUNT];
+
+void resetRuntimeState(int pad) {
+  if (pad < 0 || pad >= PAD_COUNT) return;
+
+  pads[pad].state = IDLE;
+  pads[pad].timer = 0;
+  pads[pad].peak = 0;
+  pads[pad].lastTrigger = 0;
+}
+
+void resetToDefaults() {
+  for (int i = 0; i < PAD_COUNT; i++) {
+    pads[i] = defaultPads[i];
+    resetRuntimeState(i);
+  }
+}
+
 void begin() {
   adc1_config_width(ADC_WIDTH_BIT_12);
+  resetToDefaults();
 
   for (int i = 0; i < PAD_COUNT; i++) {
     adc1_config_channel_atten(pads[i].adc, ADC_ATTEN_DB_11);
-    pads[i].state = IDLE;
-    pads[i].timer = 0;
-    pads[i].peak = 0;
-    pads[i].lastTrigger = 0;
+    resetRuntimeState(i);
   }
 }
 
