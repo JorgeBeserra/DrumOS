@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include <driver/adc.h>
-#include "Velocity.h"
+#include "Engine/Velocity.h"
 
 namespace DrumOS {
 namespace Pads {
@@ -27,6 +27,7 @@ struct PadConfig {
   const char* name;
   adc1_channel_t adc;
   int threshold;
+  int peakMax;
   int volume;
   int debounceMs;
   int scanMs;
