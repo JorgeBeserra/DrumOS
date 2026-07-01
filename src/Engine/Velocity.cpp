@@ -5,17 +5,21 @@
 namespace DrumOS {
 namespace Velocity {
 
-int apply(int raw, int threshold, Curve curve) {
-  raw = constrain(raw, threshold, 4095);
+int apply(int raw, int threshold, int peakMax, Curve curve) {
+  if (peakMax <= threshold) {
+    peakMax = threshold + 1;
+  }
 
-  float x = (float)(raw - threshold) / (4095 - threshold);
+  raw = constrain(raw, threshold, peakMax);
+
+  float x = (float)(raw - threshold) / (float)(peakMax - threshold);
   x = constrain(x, 0.0f, 1.0f);
 
   float y;
 
   switch (curve) {
     case SOFT:
-      y = sqrt(x);
+      y = sqrtf(x);
       break;
 
     case HARD:
