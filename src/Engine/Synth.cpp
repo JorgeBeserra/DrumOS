@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <math.h>
-#include "Synth.h"
+#include "Engine/Synth.h"
 
 namespace DrumOS {
 namespace Synth {
@@ -8,36 +8,41 @@ namespace Synth {
 static constexpr float TWO_PI_F = 6.28318530f;
 
 void createCrash(int16_t* buffer, int samples, int sampleRate) {
-  float duration = (float)samples / sampleRate;
-
   for (int i = 0; i < samples; i++) {
     float t = (float)i / sampleRate;
-    float progress = t / duration;
 
-    // Envelope longo, mais natural para prato
-    float env = exp(-3.0f * progress);
+    // Cauda longa do prato
+    float tailEnv = expf(-t * 2.8f);
+
+    // Ataque forte e curto a cada batida
+    float attackEnv = expf(-t * 95.0f);
 
     // Ruído principal
     float noise = ((float)random(0, 20000) / 10000.0f) - 1.0f;
 
-    // Harmônicos metálicos, mas bem misturados
+    // Ruído mais forte no ataque
+    float attackNoise = ((float)random(0, 20000) / 10000.0f) - 1.0f;
+
+    // Harmônicos metálicos
     float metal =
-      sin(6.28318530f * 4200.0f * t) * 0.18f +
-      sin(6.28318530f * 5870.0f * t) * 0.14f +
-      sin(6.28318530f * 7350.0f * t) * 0.10f +
-      sin(6.28318530f * 9100.0f * t) * 0.08f +
-      sin(6.28318530f * 11700.0f * t) * 0.05f;
+      sinf(6.28318530f * 3200.0f * t)  * 0.18f +
+      sinf(6.28318530f * 5100.0f * t)  * 0.15f +
+      sinf(6.28318530f * 7400.0f * t)  * 0.11f +
+      sinf(6.28318530f * 9600.0f * t)  * 0.07f +
+      sinf(6.28318530f * 12200.0f * t) * 0.04f;
 
-    // Ataque inicial curto, mas sem "martelada"
-    float attack = 0.0f;
-    if (i < 300) {
-      float n = ((float)random(0, 20000) / 10000.0f) - 1.0f;
-      attack = n * (1.0f - (i / 300.0f)) * 0.20f;
-    }
+    // Pequena variação na cauda, para parecer mais vivo
+    float shimmer =
+      1.0f +
+      sinf(6.28318530f * 7.0f * t) * 0.08f +
+      sinf(6.28318530f * 11.0f * t) * 0.05f;
 
-    float sample = (noise * 0.75f + metal + attack) * env;
+    float body = (noise * 0.82f + metal) * tailEnv * shimmer;
+    float attack = attackNoise * attackEnv * 1.10f;
 
-    sample *= 18000.0f;
+    float sample = body + attack;
+
+    sample *= 20000.0f;
     sample = constrain(sample, -30000.0f, 30000.0f);
 
     buffer[i] = (int16_t)sample;
@@ -189,36 +194,40 @@ void createSnare(int16_t* buffer, int samples, int sampleRate) {
   generateAdditive(buffer, samples, sampleRate, snare);
 }
 
-void createKick(int16_t* buffer, int samples, int sampleRate) {
-  float duration = (float)samples / sampleRate;
+  void createKick(int16_t* buffer, int samples, int sampleRate) {
+  float phase = 0.0f;
+  float phaseSub = 0.0f;
 
   for (int i = 0; i < samples; i++) {
     float t = (float)i / sampleRate;
-    float progress = t / duration;
 
-    // Pitch descendo rápido: ataque forte de bumbo
-    float freq = 75.0f * exp(-7.0f * progress) + 42.0f;
+    // Pitch descendo: começa mais agudo e cai para o grave
+    float freq = 48.0f + 87.0f * expf(-t * 32.0f);
 
-    // Envelope do corpo
-    float bodyEnv = exp(-5.2f * progress);
+    // Envelope mais seco
+    float bodyEnv = expf(-t * 22.0f);
 
-    // Corpo principal
-    float body = sin(6.28318530f * freq * t);
+    // Acumula fase corretamente para frequência variável
+    phase += 6.28318530f * freq / sampleRate;
+    phaseSub += 6.28318530f * 48.0f / sampleRate;
 
-    // Sub grave fixo para dar peso
-    float sub = sin(6.28318530f * 48.0f * t) * exp(-2.4f * progress) * 0.85f;
+    // Corpo principal do bumbo
+    float body = sinf(phase) * bodyEnv;
 
-    // Click curto no início
+    // Subgrave mais curto e controlado
+    float sub = sinf(phaseSub) * expf(-t * 16.0f) * 0.22f;
+
+    // Click inicial mais presente para calibração
     float click = 0.0f;
-    if (i < 180) {
+    if (t < 0.004f) {
       float n = ((float)random(0, 20000) / 10000.0f) - 1.0f;
-      click = n * (1.0f - (i / 180.0f)) * 0.10f;
+      click = n * (1.0f - (t / 0.004f)) * 0.60f;
     }
 
-    float sample = (body * bodyEnv * 1.15f) + sub + click;
+    float sample = (body * 0.90f) + sub + click;
 
-    sample *= 30000.0f;
-    sample = constrain(sample, -32767.0f, 32767.0f);
+    sample *= 26000.0f;
+    sample = constrain(sample, -30000.0f, 30000.0f);
 
     buffer[i] = (int16_t)sample;
   }

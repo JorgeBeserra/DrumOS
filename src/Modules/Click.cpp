@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <math.h>
-#include "Click.h"
-#include "Audio.h"
+#include "Modules/Click.h"
+#include "Engine/Audio.h"
 
 namespace DrumOS {
 namespace Click {

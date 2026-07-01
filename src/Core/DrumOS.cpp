@@ -1,12 +1,12 @@
 #include <Arduino.h>
 
-#include "Version.h"
-#include "Audio.h"
-#include "Click.h"
-#include "Pads.h"
-#include "Trigger.h"
-#include "Voices.h"
-#include "Shell.h"
+#include "Core/Version.h"
+#include "Engine/Audio.h"
+#include "Modules/Click.h"
+#include "Engine/Pads.h"
+#include "Engine/Trigger.h"
+#include "Engine/Voices.h"
+#include "UI/Shell.h"
 
 namespace DrumOS {
 

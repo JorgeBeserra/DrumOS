@@ -1,11 +1,11 @@
 #include <Arduino.h>
 #include <driver/adc.h>
 
-#include "Trigger.h"
-#include "Pads.h"
-#include "Velocity.h"
-#include "Audio.h"
-#include "Voices.h"
+#include "Engine/Trigger.h"
+#include "Engine/Pads.h"
+#include "Engine/Velocity.h"
+#include "Engine/Audio.h"
+#include "Engine/Voices.h"
 
 namespace DrumOS {
 namespace Trigger {

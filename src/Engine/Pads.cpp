@@ -1,13 +1,13 @@
-#include "Pads.h"
+#include "Engine/Pads.h"
 
 namespace DrumOS {
 namespace Pads {
 
 PadConfig pads[PAD_COUNT] = {
-  {"KICK",    ADC1_CHANNEL_4, 900,  120, 80,  5, 0, IDLE, 0, 0, DrumOS::Velocity::HARD},
+  {"KICK",    ADC1_CHANNEL_4, 900,  120, 80,  5, 0, IDLE, 0, 0, DrumOS::Velocity::SOFT},
   {"SNARE",   ADC1_CHANNEL_5, 900,  100, 80,  5, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
   {"HI-HAT",  ADC1_CHANNEL_6, 1200, 80,  50,  4, 0, IDLE, 0, 0, DrumOS::Velocity::SOFT},
-  {"CRASH",   ADC1_CHANNEL_7, 1200, 90,  120, 6, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
+  {"CRASH",   ADC1_CHANNEL_7, 1200, 90,  120, 6, 0, IDLE, 0, 0, DrumOS::Velocity::SOFT},
   {"HI-TOM",  ADC1_CHANNEL_0, 900,  100, 80,  5, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
   {"LOW-TOM", ADC1_CHANNEL_3, 900,  100, 80,  5, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR}
 };

@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "DrumOS.h"
+#include "Core/DrumOS.h"
 
 void setup() {
   Serial.begin(115200);

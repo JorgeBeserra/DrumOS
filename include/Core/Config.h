@@ -1,0 +1,10 @@
+#pragma once
+
+#define DRUMOS_SAMPLE_RATE   22050
+
+#define DRUMOS_I2S_BCK_PIN   26
+#define DRUMOS_I2S_LRC_PIN   25
+#define DRUMOS_I2S_DOUT_PIN  22
+
+#define DRUMOS_AUDIO_BLOCK   128
+#define DRUMOS_MAX_VOICES    16

@@ -1,16 +1,13 @@
 #include <Arduino.h>
-#include <driver/i2s.h>
-#include "Audio.h"
-
-#define I2S_BCK_PIN   26
-#define I2S_LRC_PIN   25
-#define I2S_DOUT_PIN  22
+#include <pgmspace.h>
+#include "Engine/Audio.h"
+#include "Drivers/PCM5102.h"
 
 namespace DrumOS {
 namespace Audio {
 
 struct Voice {
-  int16_t* buffer;
+  const int16_t* buffer;
   int samples;
   int pos;
   int volume;
@@ -21,37 +18,20 @@ static int masterVolume = 100;
 static Voice voices[MAX_VOICES];
 
 void begin() {
-  i2s_config_t i2s_config = {
-    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
-    .sample_rate = SAMPLE_RATE,
-    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-    .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
-    .communication_format = I2S_COMM_FORMAT_I2S,
-    .intr_alloc_flags = 0,
-    .dma_buf_count = 8,
-    .dma_buf_len = 128,
-    .use_apll = false,
-    .tx_desc_auto_clear = true,
-    .fixed_mclk = 0
-  };
-
-  i2s_pin_config_t pin_config = {
-    .bck_io_num = I2S_BCK_PIN,
-    .ws_io_num = I2S_LRC_PIN,
-    .data_out_num = I2S_DOUT_PIN,
-    .data_in_num = I2S_PIN_NO_CHANGE
-  };
-
-  i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
-  i2s_set_pin(I2S_NUM_0, &pin_config);
-  i2s_zero_dma_buffer(I2S_NUM_0);
+  DrumOS::Drivers::PCM5102::begin();
 
   for (int i = 0; i < MAX_VOICES; i++) {
     voices[i].active = false;
+    voices[i].buffer = nullptr;
+    voices[i].samples = 0;
+    voices[i].pos = 0;
+    voices[i].volume = 0;
   }
 }
 
-void playBuffer(int16_t* buffer, int samples, int volume) {
+void playBuffer(const int16_t* buffer, int samples, int volume) {
+  if (buffer == nullptr || samples <= 0) return;
+
   int freeVoice = -1;
 
   for (int i = 0; i < MAX_VOICES; i++) {
@@ -61,6 +41,7 @@ void playBuffer(int16_t* buffer, int samples, int volume) {
     }
   }
 
+  // Se todas as vozes estiverem ocupadas, rouba a voz 0
   if (freeVoice < 0) freeVoice = 0;
 
   voices[freeVoice].buffer = buffer;
@@ -84,7 +65,10 @@ void process() {
         continue;
       }
 
-      int32_t s = voices[v].buffer[voices[v].pos++];
+      int16_t rawSample = (int16_t)pgm_read_word(&voices[v].buffer[voices[v].pos]);
+      voices[v].pos++;
+
+      int32_t s = rawSample;
       s = (s * voices[v].volume) / 127;
 
       mix += s;
@@ -98,7 +82,7 @@ void process() {
   }
 
   size_t written;
-  i2s_write(I2S_NUM_0, out, sizeof(out), &written, portMAX_DELAY);
+  DrumOS::Drivers::PCM5102::writeStereoBlock(out, AUDIO_BLOCK * 2);
 }
 
 void setMasterVolume(int volume) {

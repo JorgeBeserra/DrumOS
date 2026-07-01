@@ -1,10 +1,10 @@
 #include <Arduino.h>
 
-#include "Shell.h"
-#include "Audio.h"
-#include "Click.h"
-#include "Pads.h"
-#include "Trigger.h"
+#include "UI/Shell.h"
+#include "Engine/Audio.h"
+#include "Modules/Click.h"
+#include "Engine/Pads.h"
+#include "Engine/Trigger.h"
 
 namespace DrumOS {
 namespace Shell {

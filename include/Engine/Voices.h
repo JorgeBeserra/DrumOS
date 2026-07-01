@@ -8,13 +8,13 @@ namespace DrumOS {
 namespace Voices {
 
 struct Instrument {
-  int16_t* buffer;
+  const int16_t* buffer;
   int samples;
 };
 
 void begin();
 
-int16_t* getBuffer(int pad);
+const int16_t* getBuffer(int pad);
 int getSamples(int pad);
 
 }
