@@ -14,8 +14,41 @@ static int scopePad = -1;
 static int lastScopeValue = -1;
 static bool firstScopePrint = true;
 
+static int lastTriggeredPad = -1;
+static int lastTriggeredPeak = 0;
+static unsigned long lastTriggeredAt = 0;
+
+static const unsigned long CROSSTALK_WINDOW_MS = 25;
+static const int CROSSTALK_RATIO_PERCENT = 45;
+
+static bool isCrosstalk(int pad, int peak, unsigned long now) {
+  if (lastTriggeredPad < 0) return false;
+  if (pad == lastTriggeredPad) return false;
+  if (now - lastTriggeredAt > CROSSTALK_WINDOW_MS) return false;
+  if (lastTriggeredPeak <= 0) return false;
+
+  int ratio = (peak * 100) / lastTriggeredPeak;
+
+  if (ratio < CROSSTALK_RATIO_PERCENT) {
+    Serial.print("CROSSTALK bloqueado: ");
+    Serial.print(DrumOS::Pads::pads[pad].name);
+    Serial.print(" peak=");
+    Serial.print(peak);
+    Serial.print(" origem=");
+    Serial.print(DrumOS::Pads::pads[lastTriggeredPad].name);
+    Serial.print(" origemPeak=");
+    Serial.println(lastTriggeredPeak);
+    return true;
+  }
+
+  return false;
+}
+
 void begin() {
   scopePad = -1;
+  lastTriggeredPad = -1;
+  lastTriggeredPeak = 0;
+  lastTriggeredAt = 0;
 }
 
 void triggerPad(int pad, int peak) {
@@ -23,7 +56,7 @@ void triggerPad(int pad, int peak) {
 
   auto& p = DrumOS::Pads::pads[pad];
 
-  int velocity = DrumOS::Velocity::apply(peak, p.threshold, p.curve);
+  int velocity = DrumOS::Velocity::apply(peak, p.threshold, p.peakMax, p.curve);
 
   int dynamicVolume = (velocity * 2 + ((velocity * velocity) / 127)) / 3;
   int volume = (dynamicVolume * p.volume) / 127;
@@ -34,6 +67,8 @@ void triggerPad(int pad, int peak) {
     DrumOS::Voices::getSamples(pad),
     volume
   );
+
+  p.lastTrigger = millis();
 
   Serial.print(p.name);
   Serial.print(" peak=");
@@ -67,7 +102,12 @@ void process() {
         }
 
         if (now - p.timer >= (unsigned long)p.scanMs) {
-          triggerPad(i, p.peak);
+          if (!isCrosstalk(i, p.peak, now)) {
+            triggerPad(i, p.peak);
+            lastTriggeredPad = i;
+            lastTriggeredPeak = p.peak;
+            lastTriggeredAt = now;
+          }
 
           p.timer = now;
           p.state = DrumOS::Pads::MASK_TIME;
@@ -84,8 +124,6 @@ void process() {
   }
 
   static unsigned long lastScope = 0;
-  static int lastScopeValue = -1;
-  static bool firstScopePrint = true;
 
   const int SCOPE_ZERO_VALUE = 20;
   const int SCOPE_DELTA = 10;
