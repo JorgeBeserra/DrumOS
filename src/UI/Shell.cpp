@@ -38,7 +38,6 @@ static bool parseCurve(const String& text, DrumOS::Velocity::Curve& curve) {
 static bool parsePadValue(const String& rest, String& padText, int& value, int& pad) {
   int space = rest.indexOf(' ');
   if (space < 0) return false;
-
   padText = rest.substring(0, space);
   value = rest.substring(space + 1).toInt();
   pad = DrumOS::Pads::findByName(padText);
@@ -57,9 +56,11 @@ static void printHelp() {
   Serial.println("scan kick 5         = janela de captura do peak em ms");
   Serial.println("lock kick 35        = retrigger lock do pad em ms");
   Serial.println("curve kick soft     = curva: soft, linear, hard");
-  Serial.println("xtalk show          = exibir matriz de crosstalk");
-  Serial.println("xtalk reset         = restaurar matriz padrao");
+  Serial.println("xtalk show/reset    = matriz de crosstalk");
   Serial.println("xtalk kick snare 15 = definir crosstalk 0-100");
+  Serial.println("stats               = estatisticas de todos os pads");
+  Serial.println("stats kick          = estatisticas de um pad");
+  Serial.println("stats reset         = zerar estatisticas");
   Serial.println("save/load/factory   = persistencia das configuracoes");
   Serial.println("scope kick/off      = monitorar um pad");
   Serial.println("click on/off        = ligar/desligar click");
@@ -137,28 +138,17 @@ static void handlePadNumberCommand(const String& command, const String& rest) {
 
 static void handleXtalkCommand(String rest) {
   rest.trim();
-
-  if (rest == "show") {
-    DrumOS::Trigger::printCrosstalkMatrix();
-    return;
-  }
-
-  if (rest == "reset") {
-    DrumOS::Trigger::resetCrosstalkMatrix();
-    Serial.println("Matriz de crosstalk restaurada");
-    return;
-  }
+  if (rest == "show") { DrumOS::Trigger::printCrosstalkMatrix(); return; }
+  if (rest == "reset") { DrumOS::Trigger::resetCrosstalkMatrix(); Serial.println("Matriz de crosstalk restaurada"); return; }
 
   int s1 = rest.indexOf(' ');
   if (s1 < 0) { Serial.println("Uso: xtalk kick snare 15"); return; }
-
   int s2 = rest.indexOf(' ', s1 + 1);
   if (s2 < 0) { Serial.println("Uso: xtalk kick snare 15"); return; }
 
   String sourceText = rest.substring(0, s1);
   String targetText = rest.substring(s1 + 1, s2);
   int level = rest.substring(s2 + 1).toInt();
-
   int source = DrumOS::Pads::findByName(sourceText);
   int target = DrumOS::Pads::findByName(targetText);
 
@@ -166,13 +156,35 @@ static void handleXtalkCommand(String rest) {
   if (source == target) { Serial.println("Origem e destino nao podem ser iguais"); return; }
 
   DrumOS::Trigger::setCrosstalkLevel(source, target, level);
-
   Serial.print("XTalk ");
   Serial.print(DrumOS::Pads::pads[source].name);
   Serial.print(" -> ");
   Serial.print(DrumOS::Pads::pads[target].name);
   Serial.print(" = ");
   Serial.println(constrain(level, 0, 100));
+}
+
+static void handleStatsCommand(String rest) {
+  rest.trim();
+
+  if (rest.length() == 0) {
+    DrumOS::Trigger::printStats();
+    return;
+  }
+
+  if (rest == "reset") {
+    DrumOS::Trigger::resetStats();
+    Serial.println("Estatisticas zeradas");
+    return;
+  }
+
+  int pad = DrumOS::Pads::findByName(rest);
+  if (pad < 0) {
+    Serial.println("Uso: stats, stats kick ou stats reset");
+    return;
+  }
+
+  DrumOS::Trigger::printStats(pad);
 }
 
 static void handleCommand(String cmd) {
@@ -198,13 +210,7 @@ static void handleCommand(String cmd) {
   if (cmd.startsWith("scope ")) {
     String padText = cmd.substring(6);
     padText.trim();
-
-    if (padText == "off") {
-      DrumOS::Trigger::setScopePad(-1);
-      Serial.println("Scope desligado");
-      return;
-    }
-
+    if (padText == "off") { DrumOS::Trigger::setScopePad(-1); Serial.println("Scope desligado"); return; }
     int pad = DrumOS::Pads::findByName(padText);
     if (pad < 0) { Serial.println("Pad invalido"); return; }
     DrumOS::Trigger::setScopePad(pad);
@@ -224,10 +230,8 @@ static void handleCommand(String cmd) {
     return;
   }
 
-  if (command == "xtalk") {
-    handleXtalkCommand(rest);
-    return;
-  }
+  if (command == "xtalk") { handleXtalkCommand(rest); return; }
+  if (command == "stats") { handleStatsCommand(rest); return; }
 
   if (command == "thr" || command == "max" || command == "deb" || command == "scan" || command == "lock") {
     handlePadNumberCommand(command, rest);
@@ -241,7 +245,6 @@ static void handleCommand(String cmd) {
     String padText = rest.substring(0, space2);
     String curveText = rest.substring(space2 + 1);
     curveText.trim();
-
     int pad = DrumOS::Pads::findByName(padText);
     if (pad < 0) { Serial.println("Pad invalido"); return; }
 
