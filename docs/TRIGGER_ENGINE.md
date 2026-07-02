@@ -26,6 +26,7 @@ Cada pad possui:
 | `debounceMs` | Tempo de bloqueio depois de uma batida |
 | `scanMs` | Janela máxima para procurar o pico da batida |
 | `retriggerLockMs` | Janela inicial para bloquear picos falsos da mesma vibração |
+| `gateMargin` | Pico mínimo acima do threshold para aceitar a batida |
 | `curve` | Curva de velocity |
 
 ## Estados atuais
@@ -95,6 +96,35 @@ lock kick 35
 lock snare 30
 lock crash 55
 ```
+
+## Gate Margin
+
+O filtro de margem evita que pequenos ruídos logo acima do `threshold` virem batidas.
+
+A regra é:
+
+```text
+pico minimo aceito = threshold + gateMargin
+```
+
+Exemplo:
+
+```text
+thr kick 550
+margin kick 80
+```
+
+Nesse caso, o KICK só dispara se o pico capturado for pelo menos `630`.
+
+Comandos:
+
+```text
+margin kick 80
+margin snare 70
+margin crash 60
+```
+
+Se o pico for rejeitado, o contador `noise` em `stats` aumenta.
 
 ## Velocity
 
@@ -175,7 +205,7 @@ Campos exibidos:
 | `avgVelocity` | velocity média |
 | `crosstalk` | disparos bloqueados por crosstalk |
 | `retrigger` | picos bloqueados durante retrigger lock |
-| `noise` | ruídos descartados, reservado para Noise Gate |
+| `noise` | ruídos descartados pelo filtro de margem |
 
 Esses dados serão usados futuramente pela auto-calibração.
 
@@ -208,10 +238,9 @@ Esse modo ajuda a enxergar:
 - tempo de subida;
 - cauda da vibração;
 - ruído em repouso;
-- necessidade de ajustar `threshold`, `scan` e `lock`.
+- necessidade de ajustar `threshold`, `scan`, `lock` e `margin`.
 
 ## Próximas melhorias
 
-- Noise Gate dedicado
 - Adaptive Scan baseado no tipo de pad
 - Auto-calibração
