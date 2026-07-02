@@ -23,6 +23,7 @@ Cada pad possui:
 | `volume` | Volume máximo do pad |
 | `debounceMs` | Tempo de bloqueio depois de uma batida |
 | `scanMs` | Janela máxima para procurar o pico da batida |
+| `retriggerLockMs` | Janela inicial para bloquear picos falsos da mesma vibração |
 | `curve` | Curva de velocity |
 
 ## Estados atuais
@@ -34,6 +35,9 @@ IDLE
 WAIT_PEAK
   Captura o maior valor da batida.
   Dispara quando o pico começa a cair ou quando scanMs expira.
+
+RETRIGGER_LOCK
+  Bloqueia picos fracos que ainda pertencem à mesma vibração do piezo.
 
 MASK_TIME
   Durante debounceMs, ignora novas leituras do mesmo pad.
@@ -66,6 +70,39 @@ REQUIRED_FALLING_SAMPLES = 1
 ```
 
 `scanMs` continua existindo como tempo máximo de segurança. Se a queda não for detectada, o disparo acontece quando `scanMs` expira.
+
+## Retrigger Cancel
+
+Depois de uma batida, muitos piezos fazem uma oscilação com novos picos menores:
+
+```text
+2100
+1600
+900
+650
+820  <- pico falso
+500
+```
+
+O estado `RETRIGGER_LOCK` reduz esses disparos falsos. Durante esse período, o firmware trata picos fracos como continuação da mesma batida.
+
+O tempo é configurável por pad:
+
+```text
+lock kick 35
+lock snare 30
+lock crash 55
+```
+
+Valores iniciais recomendados:
+
+| Pad | Lock inicial |
+|---|---:|
+| KICK | 35 ms |
+| SNARE | 30 ms |
+| HI-HAT | 18 ms |
+| CRASH | 55 ms |
+| TOMs | 30–35 ms |
 
 ## Velocity
 
@@ -103,7 +140,7 @@ CROSSTALK_RATIO_PERCENT = 45
 ## Próximas melhorias
 
 - Crosstalk Matrix por pares de pads
-- Retrigger Cancel por curva de decaimento
-- Adaptive Scan baseado no tipo de pad
 - Estatísticas de peak mínimo/médio/máximo
+- Osciloscópio serial
+- Adaptive Scan baseado no tipo de pad
 - Auto-calibração
