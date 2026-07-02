@@ -11,7 +11,7 @@ static ::Preferences nvs;
 static bool ready = false;
 
 static const char* NAMESPACE = "drumos";
-static const uint32_t SCHEMA_VERSION = 1;
+static const uint32_t SCHEMA_VERSION = 2;
 
 static String keyFor(const char* prefix, int pad) {
   return String(prefix) + String(pad);
@@ -46,6 +46,7 @@ bool savePad(int pad) {
   nvs.putInt(keyFor("vol", pad).c_str(), p.volume);
   nvs.putInt(keyFor("deb", pad).c_str(), p.debounceMs);
   nvs.putInt(keyFor("scan", pad).c_str(), p.scanMs);
+  nvs.putInt(keyFor("lock", pad).c_str(), p.retriggerLockMs);
   nvs.putInt(keyFor("curve", pad).c_str(), (int)p.curve);
 
   return true;
@@ -69,7 +70,7 @@ bool loadPads() {
 
   uint32_t schema = nvs.getUInt("schema", 0);
 
-  if (schema != SCHEMA_VERSION) {
+  if (schema == 0) {
     Serial.println("ConfigStore: nenhuma configuracao salva encontrada");
     return false;
   }
@@ -82,12 +83,18 @@ bool loadPads() {
     p.volume = constrain(nvs.getInt(keyFor("vol", i).c_str(), p.volume), 0, 127);
     p.debounceMs = constrain(nvs.getInt(keyFor("deb", i).c_str(), p.debounceMs), 10, 500);
     p.scanMs = constrain(nvs.getInt(keyFor("scan", i).c_str(), p.scanMs), 1, 30);
+    p.retriggerLockMs = constrain(nvs.getInt(keyFor("lock", i).c_str(), p.retriggerLockMs), 0, 200);
 
     int curve = nvs.getInt(keyFor("curve", i).c_str(), (int)p.curve);
     curve = constrain(curve, (int)DrumOS::Velocity::LINEAR, (int)DrumOS::Velocity::HARD);
     p.curve = (DrumOS::Velocity::Curve)curve;
 
     DrumOS::Pads::resetRuntimeState(i);
+  }
+
+  if (schema != SCHEMA_VERSION) {
+    nvs.putUInt("schema", SCHEMA_VERSION);
+    savePads();
   }
 
   Serial.println("ConfigStore: configuracoes carregadas");
