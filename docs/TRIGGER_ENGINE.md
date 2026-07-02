@@ -12,6 +12,7 @@ O Trigger Engine é responsável por transformar sinais dos piezos em eventos mu
 - Reduzir crosstalk entre pads
 - Reduzir latência sem perder o pico real da batida
 - Medir estatísticas para calibração
+- Visualizar o sinal do piezo pelo terminal serial
 
 ## Configuração por pad
 
@@ -178,9 +179,39 @@ Campos exibidos:
 
 Esses dados serão usados futuramente pela auto-calibração.
 
+## Osciloscópio Serial
+
+O modo gráfico captura rapidamente 64 amostras do ADC e desenha uma curva simples no terminal.
+
+Comando:
+
+```text
+scope graph kick
+```
+
+Exemplo de saída:
+
+```text
+Scope Graph: KICK
+min=0 max=1840
+1840 |             *
+1686 |            ***
+1533 |           *****
+1226 |        *********
+ 613 |   ********
+     +----------------------------------------------------------------
+```
+
+Esse modo ajuda a enxergar:
+
+- pico real da batida;
+- tempo de subida;
+- cauda da vibração;
+- ruído em repouso;
+- necessidade de ajustar `threshold`, `scan` e `lock`.
+
 ## Próximas melhorias
 
-- Osciloscópio serial
 - Noise Gate dedicado
 - Adaptive Scan baseado no tipo de pad
 - Auto-calibração
