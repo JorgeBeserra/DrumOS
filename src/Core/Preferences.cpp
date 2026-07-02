@@ -3,6 +3,7 @@
 
 #include "Core/Preferences.h"
 #include "Engine/Pads.h"
+#include "Engine/Trigger.h"
 
 namespace DrumOS {
 namespace ConfigStore {
@@ -11,10 +12,14 @@ static ::Preferences nvs;
 static bool ready = false;
 
 static const char* NAMESPACE = "drumos";
-static const uint32_t SCHEMA_VERSION = 2;
+static const uint32_t SCHEMA_VERSION = 3;
 
 static String keyFor(const char* prefix, int pad) {
   return String(prefix) + String(pad);
+}
+
+static String xtalkKey(int source, int target) {
+  return String("xt") + String(source) + String("_") + String(target);
 }
 
 bool begin() {
@@ -61,6 +66,13 @@ bool savePads() {
     savePad(i);
   }
 
+  for (int source = 0; source < DrumOS::Pads::PAD_COUNT; source++) {
+    for (int target = 0; target < DrumOS::Pads::PAD_COUNT; target++) {
+      if (source == target) continue;
+      nvs.putInt(xtalkKey(source, target).c_str(), DrumOS::Trigger::getCrosstalkLevel(source, target));
+    }
+  }
+
   Serial.println("ConfigStore: configuracoes salvas");
   return true;
 }
@@ -92,6 +104,19 @@ bool loadPads() {
     DrumOS::Pads::resetRuntimeState(i);
   }
 
+  DrumOS::Trigger::resetCrosstalkMatrix();
+
+  if (schema >= 3) {
+    for (int source = 0; source < DrumOS::Pads::PAD_COUNT; source++) {
+      for (int target = 0; target < DrumOS::Pads::PAD_COUNT; target++) {
+        if (source == target) continue;
+        int current = DrumOS::Trigger::getCrosstalkLevel(source, target);
+        int level = constrain(nvs.getInt(xtalkKey(source, target).c_str(), current), 0, 100);
+        DrumOS::Trigger::setCrosstalkLevel(source, target, level);
+      }
+    }
+  }
+
   if (schema != SCHEMA_VERSION) {
     nvs.putUInt("schema", SCHEMA_VERSION);
     savePads();
@@ -106,6 +131,7 @@ bool factoryReset() {
 
   nvs.clear();
   DrumOS::Pads::resetToDefaults();
+  DrumOS::Trigger::resetCrosstalkMatrix();
   savePads();
 
   Serial.println("ConfigStore: padroes de fabrica restaurados");
