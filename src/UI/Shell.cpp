@@ -61,8 +61,8 @@ static void printHelp() {
   Serial.println("stats               = estatisticas de todos os pads");
   Serial.println("stats kick          = estatisticas de um pad");
   Serial.println("stats reset         = zerar estatisticas");
-  Serial.println("save/load/factory   = persistencia das configuracoes");
   Serial.println("scope kick/off      = monitorar um pad");
+  Serial.println("scope graph kick    = osciloscopio serial rapido");
   Serial.println("click on/off        = ligar/desligar click");
   Serial.println("bpm 120             = definir BPM");
   Serial.println("status              = listar configuracoes");
@@ -166,25 +166,37 @@ static void handleXtalkCommand(String rest) {
 
 static void handleStatsCommand(String rest) {
   rest.trim();
+  if (rest.length() == 0) { DrumOS::Trigger::printStats(); return; }
+  if (rest == "reset") { DrumOS::Trigger::resetStats(); Serial.println("Estatisticas zeradas"); return; }
+  int pad = DrumOS::Pads::findByName(rest);
+  if (pad < 0) { Serial.println("Uso: stats, stats kick ou stats reset"); return; }
+  DrumOS::Trigger::printStats(pad);
+}
 
-  if (rest.length() == 0) {
-    DrumOS::Trigger::printStats();
-    return;
+static bool handleScopeCommand(String rest) {
+  rest.trim();
+
+  if (rest.startsWith("graph ")) {
+    String padText = rest.substring(6);
+    padText.trim();
+    int pad = DrumOS::Pads::findByName(padText);
+    if (pad < 0) { Serial.println("Pad invalido"); return true; }
+    DrumOS::Trigger::printScopeGraph(pad);
+    return true;
   }
 
-  if (rest == "reset") {
-    DrumOS::Trigger::resetStats();
-    Serial.println("Estatisticas zeradas");
-    return;
+  if (rest == "off") {
+    DrumOS::Trigger::setScopePad(-1);
+    Serial.println("Scope desligado");
+    return true;
   }
 
   int pad = DrumOS::Pads::findByName(rest);
-  if (pad < 0) {
-    Serial.println("Uso: stats, stats kick ou stats reset");
-    return;
-  }
-
-  DrumOS::Trigger::printStats(pad);
+  if (pad < 0) { Serial.println("Pad invalido"); return true; }
+  DrumOS::Trigger::setScopePad(pad);
+  Serial.print("Scope ligado em: ");
+  Serial.println(DrumOS::Pads::pads[pad].name);
+  return true;
 }
 
 static void handleCommand(String cmd) {
@@ -207,21 +219,11 @@ static void handleCommand(String cmd) {
     return;
   }
 
-  if (cmd.startsWith("scope ")) {
-    String padText = cmd.substring(6);
-    padText.trim();
-    if (padText == "off") { DrumOS::Trigger::setScopePad(-1); Serial.println("Scope desligado"); return; }
-    int pad = DrumOS::Pads::findByName(padText);
-    if (pad < 0) { Serial.println("Pad invalido"); return; }
-    DrumOS::Trigger::setScopePad(pad);
-    Serial.print("Scope ligado em: ");
-    Serial.println(DrumOS::Pads::pads[pad].name);
-    return;
-  }
-
   int space = cmd.indexOf(' ');
   String command = space >= 0 ? cmd.substring(0, space) : cmd;
   String rest = space >= 0 ? cmd.substring(space + 1) : "";
+
+  if (command == "scope") { handleScopeCommand(rest); return; }
 
   if (command == "vol") {
     DrumOS::Audio::setMasterVolume(rest.toInt());
@@ -304,10 +306,7 @@ void process() {
     }
 
     if (c == 8 || c == 127) {
-      if (pos > 0) {
-        pos--;
-        line[pos] = 0;
-      }
+      if (pos > 0) { pos--; line[pos] = 0; }
       continue;
     }
 
