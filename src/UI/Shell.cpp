@@ -26,6 +26,7 @@ static void printHelp() {
   Serial.println("max kick 2100       = peak maximo para velocity 127");
   Serial.println("deb kick 90         = debounce/mask do pad em ms");
   Serial.println("scan kick 5         = janela de captura do peak em ms");
+  Serial.println("lock kick 35        = retrigger lock do pad em ms");
   Serial.println("curve kick soft     = curva: soft, linear, hard");
   Serial.println("save                = salvar configuracoes dos pads");
   Serial.println("load                = carregar configuracoes salvas");
@@ -67,10 +68,7 @@ static void handleCommand(String cmd) {
 
   if (cmd.length() == 0) return;
 
-  if (cmd == "help") {
-    printHelp();
-    return;
-  }
+  if (cmd == "help") { printHelp(); return; }
 
   if (cmd == "save") {
     Serial.println(DrumOS::ConfigStore::savePads() ? "Configuracoes salvas" : "Erro ao salvar configuracoes");
@@ -90,13 +88,10 @@ static void handleCommand(String cmd) {
   if (cmd == "status") {
     Serial.print("Master Volume: ");
     Serial.println(DrumOS::Audio::getMasterVolume());
-
     Serial.print("Click: ");
     Serial.println(DrumOS::Click::isEnabled() ? "ON" : "OFF");
-
     Serial.print("BPM: ");
     Serial.println(DrumOS::Click::getBpm());
-
     Serial.print("ConfigStore: ");
     Serial.println(DrumOS::ConfigStore::isReady() ? "READY" : "OFF");
 
@@ -113,23 +108,16 @@ static void handleCommand(String cmd) {
       Serial.print(p.debounceMs);
       Serial.print(" scan=");
       Serial.print(p.scanMs);
+      Serial.print(" lock=");
+      Serial.print(p.retriggerLockMs);
       Serial.print(" curve=");
       Serial.println(curveToText(p.curve));
     }
     return;
   }
 
-  if (cmd == "click on") {
-    DrumOS::Click::setEnabled(true);
-    Serial.println("Click ligado");
-    return;
-  }
-
-  if (cmd == "click off") {
-    DrumOS::Click::setEnabled(false);
-    Serial.println("Click desligado");
-    return;
-  }
+  if (cmd == "click on") { DrumOS::Click::setEnabled(true); Serial.println("Click ligado"); return; }
+  if (cmd == "click off") { DrumOS::Click::setEnabled(false); Serial.println("Click desligado"); return; }
 
   if (cmd.startsWith("bpm ")) {
     int value = cmd.substring(4).toInt();
@@ -150,10 +138,7 @@ static void handleCommand(String cmd) {
     }
 
     int pad = DrumOS::Pads::findByName(padText);
-    if (pad < 0) {
-      Serial.println("Pad invalido");
-      return;
-    }
+    if (pad < 0) { Serial.println("Pad invalido"); return; }
 
     DrumOS::Trigger::setScopePad(pad);
     Serial.print("Scope ligado em: ");
@@ -235,6 +220,22 @@ static void handleCommand(String cmd) {
     Serial.print(DrumOS::Pads::pads[pad].name);
     Serial.print(" = ");
     Serial.print(DrumOS::Pads::pads[pad].scanMs);
+    Serial.println(" ms");
+    return;
+  }
+
+  if (a == "lock") {
+    String padText;
+    int value;
+    if (!parsePadValue(rest, padText, value)) { Serial.println("Uso: lock kick 35"); return; }
+    int pad = DrumOS::Pads::findByName(padText);
+    if (pad < 0) { Serial.println("Pad invalido"); return; }
+    DrumOS::Pads::pads[pad].retriggerLockMs = constrain(value, 0, 200);
+    DrumOS::Pads::resetRuntimeState(pad);
+    Serial.print("Retrigger lock ");
+    Serial.print(DrumOS::Pads::pads[pad].name);
+    Serial.print(" = ");
+    Serial.print(DrumOS::Pads::pads[pad].retriggerLockMs);
     Serial.println(" ms");
     return;
   }
