@@ -20,6 +20,7 @@ static unsigned long lastTriggeredAt = 0;
 
 static int previousValue[DrumOS::Pads::PAD_COUNT];
 static int fallingCount[DrumOS::Pads::PAD_COUNT];
+static int retriggerPeak[DrumOS::Pads::PAD_COUNT];
 
 static const unsigned long CROSSTALK_WINDOW_MS = 25;
 static const int CROSSTALK_RATIO_PERCENT = 45;
@@ -28,6 +29,9 @@ static const unsigned long MIN_PEAK_SCAN_MS = 2;
 static const int MIN_PEAK_FALL_DELTA = 24;
 static const int PEAK_FALL_PERCENT = 4;
 static const int REQUIRED_FALLING_SAMPLES = 1;
+
+static const int RETRIGGER_WEAK_PERCENT = 65;
+static const int RETRIGGER_RESET_VALUE = 40;
 
 static bool isCrosstalk(int pad, int peak, unsigned long now) {
   if (lastTriggeredPad < 0) return false;
@@ -67,6 +71,15 @@ static bool hasPeakStartedFalling(int pad, int value, unsigned long elapsedMs) {
   return fallingCount[pad] >= REQUIRED_FALLING_SAMPLES;
 }
 
+static void startMaskTime(int pad, unsigned long now) {
+  auto& p = DrumOS::Pads::pads[pad];
+
+  p.timer = now;
+  p.state = DrumOS::Pads::MASK_TIME;
+  fallingCount[pad] = 0;
+  previousValue[pad] = 0;
+}
+
 static void finishPeakScan(int pad, unsigned long now) {
   auto& p = DrumOS::Pads::pads[pad];
 
@@ -77,10 +90,26 @@ static void finishPeakScan(int pad, unsigned long now) {
     lastTriggeredAt = now;
   }
 
-  p.timer = now;
-  p.state = DrumOS::Pads::MASK_TIME;
+  if (p.retriggerLockMs > 0) {
+    p.timer = now;
+    p.state = DrumOS::Pads::RETRIGGER_LOCK;
+    retriggerPeak[pad] = p.peak;
+  } else {
+    startMaskTime(pad, now);
+  }
+
   fallingCount[pad] = 0;
   previousValue[pad] = 0;
+}
+
+static bool isStrongNewHitDuringLock(int pad, int value) {
+  auto& p = DrumOS::Pads::pads[pad];
+
+  if (value <= p.threshold) return false;
+  if (value <= RETRIGGER_RESET_VALUE) return false;
+
+  int strongLimit = max(p.threshold, (retriggerPeak[pad] * RETRIGGER_WEAK_PERCENT) / 100);
+  return value >= strongLimit;
 }
 
 void begin() {
@@ -92,6 +121,7 @@ void begin() {
   for (int i = 0; i < DrumOS::Pads::PAD_COUNT; i++) {
     previousValue[i] = 0;
     fallingCount[i] = 0;
+    retriggerPeak[i] = 0;
   }
 }
 
@@ -161,11 +191,34 @@ void process() {
         break;
       }
 
+      case DrumOS::Pads::RETRIGGER_LOCK: {
+        unsigned long elapsed = now - p.timer;
+
+        if (value > retriggerPeak[i]) {
+          retriggerPeak[i] = value;
+        }
+
+        bool lockExpired = elapsed >= (unsigned long)p.retriggerLockMs;
+        bool signalReturnedToRest = value <= RETRIGGER_RESET_VALUE;
+
+        if (lockExpired || signalReturnedToRest) {
+          startMaskTime(i, now);
+        } else if (isStrongNewHitDuringLock(i, value)) {
+          p.peak = value;
+          p.timer = now;
+          previousValue[i] = value;
+          fallingCount[i] = 0;
+          p.state = DrumOS::Pads::WAIT_PEAK;
+        }
+        break;
+      }
+
       case DrumOS::Pads::MASK_TIME:
         if (now - p.timer >= (unsigned long)p.debounceMs) {
           p.peak = 0;
           previousValue[i] = 0;
           fallingCount[i] = 0;
+          retriggerPeak[i] = 0;
           p.state = DrumOS::Pads::IDLE;
         }
         break;
