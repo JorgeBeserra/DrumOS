@@ -90,9 +90,7 @@ static void printOneStats(int pad) {
   Serial.println(s.noiseRejected);
 }
 
-void printStats(int pad) {
-  printOneStats(pad);
-}
+void printStats(int pad) { printOneStats(pad); }
 
 void printStats() {
   Serial.println("Trigger Stats:");
@@ -252,10 +250,7 @@ void process() {
         break;
       case DrumOS::Pads::WAIT_PEAK: {
         unsigned long elapsed = now - p.timer;
-        if (value > p.peak) {
-          p.peak = value;
-          fallingCount[i] = 0;
-        }
+        if (value > p.peak) { p.peak = value; fallingCount[i] = 0; }
         bool peakStartedFalling = hasPeakStartedFalling(i, value, elapsed);
         bool scanTimedOut = elapsed >= (unsigned long)p.scanMs;
         previousValue[i] = value;
@@ -264,10 +259,7 @@ void process() {
       }
       case DrumOS::Pads::RETRIGGER_LOCK: {
         unsigned long elapsed = now - p.timer;
-        if (value > retriggerPeak[i]) {
-          retriggerPeak[i] = value;
-          stats[i].retriggerBlocked++;
-        }
+        if (value > retriggerPeak[i]) { retriggerPeak[i] = value; stats[i].retriggerBlocked++; }
         bool lockExpired = elapsed >= (unsigned long)p.retriggerLockMs;
         bool signalReturnedToRest = value <= RETRIGGER_RESET_VALUE;
         if (lockExpired || signalReturnedToRest) {
@@ -314,6 +306,46 @@ void process() {
   }
 }
 
+void printScopeGraph(int pad) {
+  if (pad < 0 || pad >= DrumOS::Pads::PAD_COUNT) return;
+
+  static int samples[64];
+  int maxValue = 0;
+  int minValue = 4095;
+
+  for (int i = 0; i < 64; i++) {
+    samples[i] = adc1_get_raw(DrumOS::Pads::pads[pad].adc);
+    if (samples[i] > maxValue) maxValue = samples[i];
+    if (samples[i] < minValue) minValue = samples[i];
+    delayMicroseconds(500);
+  }
+
+  int scaleMax = max(100, maxValue);
+
+  Serial.print("Scope Graph: ");
+  Serial.println(DrumOS::Pads::pads[pad].name);
+  Serial.print("min=");
+  Serial.print(minValue);
+  Serial.print(" max=");
+  Serial.println(maxValue);
+
+  for (int row = 12; row >= 1; row--) {
+    int level = (scaleMax * row) / 12;
+    if (level < 1000) Serial.print(' ');
+    if (level < 100) Serial.print(' ');
+    if (level < 10) Serial.print(' ');
+    Serial.print(level);
+    Serial.print(" | ");
+
+    for (int i = 0; i < 64; i++) {
+      Serial.print(samples[i] >= level ? '*' : ' ');
+    }
+    Serial.println();
+  }
+
+  Serial.println("     +----------------------------------------------------------------");
+}
+
 void setScopePad(int pad) {
   if (pad >= 0 && pad < DrumOS::Pads::PAD_COUNT) scopePad = pad;
   else scopePad = -1;
@@ -321,9 +353,7 @@ void setScopePad(int pad) {
   firstScopePrint = true;
 }
 
-int getScopePad() {
-  return scopePad;
-}
+int getScopePad() { return scopePad; }
 
 }
 }
