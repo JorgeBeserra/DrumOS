@@ -11,6 +11,7 @@ O Trigger Engine é responsável por transformar sinais dos piezos em eventos mu
 - Evitar disparo duplo
 - Reduzir crosstalk entre pads
 - Reduzir latência sem perder o pico real da batida
+- Medir estatísticas para calibração
 
 ## Configuração por pad
 
@@ -150,9 +151,36 @@ A matriz é salva junto com as configurações pelo comando:
 save
 ```
 
+## Trigger Statistics
+
+As estatísticas ajudam a calibrar os pads com dados reais.
+
+Comandos:
+
+```text
+stats
+stats kick
+stats reset
+```
+
+Campos exibidos:
+
+| Campo | Função |
+|---|---|
+| `hits` | quantidade de disparos aceitos |
+| `minPeak` | menor pico aceito |
+| `avgPeak` | pico médio aceito |
+| `maxPeak` | maior pico aceito |
+| `avgVelocity` | velocity média |
+| `crosstalk` | disparos bloqueados por crosstalk |
+| `retrigger` | picos bloqueados durante retrigger lock |
+| `noise` | ruídos descartados, reservado para Noise Gate |
+
+Esses dados serão usados futuramente pela auto-calibração.
+
 ## Próximas melhorias
 
-- Estatísticas de peak mínimo/médio/máximo
 - Osciloscópio serial
+- Noise Gate dedicado
 - Adaptive Scan baseado no tipo de pad
 - Auto-calibração
