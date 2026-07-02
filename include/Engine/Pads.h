@@ -20,6 +20,7 @@ enum PadId {
 enum PadState {
   IDLE,
   WAIT_PEAK,
+  RETRIGGER_LOCK,
   MASK_TIME
 };
 
@@ -31,6 +32,7 @@ struct PadConfig {
   int volume;
   int debounceMs;
   int scanMs;
+  int retriggerLockMs;
   unsigned long lastTrigger;
   PadState state;
   unsigned long timer;
