@@ -94,16 +94,6 @@ lock snare 30
 lock crash 55
 ```
 
-Valores iniciais recomendados:
-
-| Pad | Lock inicial |
-|---|---:|
-| KICK | 35 ms |
-| SNARE | 30 ms |
-| HI-HAT | 18 ms |
-| CRASH | 55 ms |
-| TOMs | 30–35 ms |
-
 ## Velocity
 
 A velocity usa:
@@ -120,26 +110,48 @@ Curvas disponíveis:
 - `SOFT`
 - `HARD`
 
-## Crosstalk simples
+## Crosstalk Matrix
 
-O crosstalk atual usa janela de tempo e razão de pico:
+A matriz de crosstalk permite configurar quanto uma peça pode interferir em outra.
+
+Comandos:
 
 ```text
-se outro pad disparar muito próximo do anterior
-  e o pico for muito menor
-    bloqueia como crosstalk
+xtalk show
+xtalk reset
+xtalk kick snare 15
+xtalk crash hitom 30
 ```
 
-Parâmetros atuais:
+A regra é direcional:
 
 ```text
-CROSSTALK_WINDOW_MS = 25
-CROSSTALK_RATIO_PERCENT = 45
+xtalk crash hitom 30
+```
+
+significa que uma batida no CRASH pode bloquear uma vibração fraca no HI-TOM. O contrário só acontece se também existir:
+
+```text
+xtalk hitom crash 30
+```
+
+Valores:
+
+| Nível | Efeito |
+|---:|---|
+| 0 | sem bloqueio entre o par |
+| 10–30 | bloqueio leve/moderado |
+| 40–70 | bloqueio forte |
+| 80–100 | muito agressivo, usar com cuidado |
+
+A matriz é salva junto com as configurações pelo comando:
+
+```text
+save
 ```
 
 ## Próximas melhorias
 
-- Crosstalk Matrix por pares de pads
 - Estatísticas de peak mínimo/médio/máximo
 - Osciloscópio serial
 - Adaptive Scan baseado no tipo de pad
