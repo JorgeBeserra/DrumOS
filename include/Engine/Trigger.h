@@ -13,5 +13,10 @@ int getScopePad();
 
 void triggerPad(int pad, int peak);
 
+void resetCrosstalkMatrix();
+void setCrosstalkLevel(int sourcePad, int targetPad, int level);
+int getCrosstalkLevel(int sourcePad, int targetPad);
+void printCrosstalkMatrix();
+
 }
 }
