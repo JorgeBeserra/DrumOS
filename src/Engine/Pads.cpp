@@ -4,13 +4,13 @@ namespace DrumOS {
 namespace Pads {
 
 static const PadConfig defaultPads[PAD_COUNT] = {
-  // name      adc             thr   max   vol  deb scan last state timer peak curve
-  {"KICK",    ADC1_CHANNEL_4,  550,  2100, 127, 90,  10, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
-  {"SNARE",   ADC1_CHANNEL_5,  500,  2400, 120, 80,  5,  0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
-  {"HI-HAT",  ADC1_CHANNEL_6,  350,  1800, 100, 45,  3,  0, IDLE, 0, 0, DrumOS::Velocity::SOFT},
-  {"CRASH",   ADC1_CHANNEL_7,  350,  2600, 115, 140, 8,  0, IDLE, 0, 0, DrumOS::Velocity::SOFT},
-  {"HI-TOM",  ADC1_CHANNEL_0,  500,  2400, 110, 80,  5,  0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
-  {"LOW-TOM", ADC1_CHANNEL_3,  500,  2400, 110, 80,  5,  0, IDLE, 0, 0, DrumOS::Velocity::LINEAR}
+  // name      adc             thr   max   vol  deb scan lock last state timer peak curve
+  {"KICK",    ADC1_CHANNEL_4,  550,  2100, 127, 90,  10,  35, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
+  {"SNARE",   ADC1_CHANNEL_5,  500,  2400, 120, 80,  5,   30, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
+  {"HI-HAT",  ADC1_CHANNEL_6,  350,  1800, 100, 45,  3,   18, 0, IDLE, 0, 0, DrumOS::Velocity::SOFT},
+  {"CRASH",   ADC1_CHANNEL_7,  350,  2600, 115, 140, 8,   55, 0, IDLE, 0, 0, DrumOS::Velocity::SOFT},
+  {"HI-TOM",  ADC1_CHANNEL_0,  500,  2400, 110, 80,  5,   30, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR},
+  {"LOW-TOM", ADC1_CHANNEL_3,  500,  2400, 110, 80,  5,   35, 0, IDLE, 0, 0, DrumOS::Velocity::LINEAR}
 };
 
 PadConfig pads[PAD_COUNT];
