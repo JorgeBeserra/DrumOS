@@ -21,6 +21,7 @@ void process();
 
 void setScopePad(int pad);
 int getScopePad();
+void printScopeGraph(int pad);
 
 void triggerPad(int pad, int peak);
 
