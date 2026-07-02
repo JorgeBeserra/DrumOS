@@ -57,6 +57,9 @@ static void printHelp() {
   Serial.println("scan kick 5         = janela de captura do peak em ms");
   Serial.println("lock kick 35        = retrigger lock do pad em ms");
   Serial.println("curve kick soft     = curva: soft, linear, hard");
+  Serial.println("xtalk show          = exibir matriz de crosstalk");
+  Serial.println("xtalk reset         = restaurar matriz padrao");
+  Serial.println("xtalk kick snare 15 = definir crosstalk 0-100");
   Serial.println("save/load/factory   = persistencia das configuracoes");
   Serial.println("scope kick/off      = monitorar um pad");
   Serial.println("click on/off        = ligar/desligar click");
@@ -132,6 +135,46 @@ static void handlePadNumberCommand(const String& command, const String& rest) {
   Serial.println(value);
 }
 
+static void handleXtalkCommand(String rest) {
+  rest.trim();
+
+  if (rest == "show") {
+    DrumOS::Trigger::printCrosstalkMatrix();
+    return;
+  }
+
+  if (rest == "reset") {
+    DrumOS::Trigger::resetCrosstalkMatrix();
+    Serial.println("Matriz de crosstalk restaurada");
+    return;
+  }
+
+  int s1 = rest.indexOf(' ');
+  if (s1 < 0) { Serial.println("Uso: xtalk kick snare 15"); return; }
+
+  int s2 = rest.indexOf(' ', s1 + 1);
+  if (s2 < 0) { Serial.println("Uso: xtalk kick snare 15"); return; }
+
+  String sourceText = rest.substring(0, s1);
+  String targetText = rest.substring(s1 + 1, s2);
+  int level = rest.substring(s2 + 1).toInt();
+
+  int source = DrumOS::Pads::findByName(sourceText);
+  int target = DrumOS::Pads::findByName(targetText);
+
+  if (source < 0 || target < 0) { Serial.println("Pad invalido"); return; }
+  if (source == target) { Serial.println("Origem e destino nao podem ser iguais"); return; }
+
+  DrumOS::Trigger::setCrosstalkLevel(source, target, level);
+
+  Serial.print("XTalk ");
+  Serial.print(DrumOS::Pads::pads[source].name);
+  Serial.print(" -> ");
+  Serial.print(DrumOS::Pads::pads[target].name);
+  Serial.print(" = ");
+  Serial.println(constrain(level, 0, 100));
+}
+
 static void handleCommand(String cmd) {
   cmd.trim();
   cmd.toLowerCase();
@@ -178,6 +221,11 @@ static void handleCommand(String cmd) {
     DrumOS::Audio::setMasterVolume(rest.toInt());
     Serial.print("Volume master = ");
     Serial.println(DrumOS::Audio::getMasterVolume());
+    return;
+  }
+
+  if (command == "xtalk") {
+    handleXtalkCommand(rest);
     return;
   }
 
