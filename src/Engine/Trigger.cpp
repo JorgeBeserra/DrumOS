@@ -22,17 +22,82 @@ static int previousValue[DrumOS::Pads::PAD_COUNT];
 static int fallingCount[DrumOS::Pads::PAD_COUNT];
 static int retriggerPeak[DrumOS::Pads::PAD_COUNT];
 static uint8_t crosstalkMatrix[DrumOS::Pads::PAD_COUNT][DrumOS::Pads::PAD_COUNT];
+static PadStats stats[DrumOS::Pads::PAD_COUNT];
 
 static const unsigned long CROSSTALK_WINDOW_MS = 25;
 static const int DEFAULT_CROSSTALK_RATIO_PERCENT = 45;
-
 static const unsigned long MIN_PEAK_SCAN_MS = 2;
 static const int MIN_PEAK_FALL_DELTA = 24;
 static const int PEAK_FALL_PERCENT = 4;
 static const int REQUIRED_FALLING_SAMPLES = 1;
-
 static const int RETRIGGER_WEAK_PERCENT = 65;
 static const int RETRIGGER_RESET_VALUE = 40;
+
+void resetStats(int pad) {
+  if (pad < 0 || pad >= DrumOS::Pads::PAD_COUNT) return;
+  stats[pad].hits = 0;
+  stats[pad].crosstalkBlocked = 0;
+  stats[pad].retriggerBlocked = 0;
+  stats[pad].noiseRejected = 0;
+  stats[pad].peakSum = 0;
+  stats[pad].velocitySum = 0;
+  stats[pad].minPeak = 0;
+  stats[pad].maxPeak = 0;
+}
+
+void resetStats() {
+  for (int i = 0; i < DrumOS::Pads::PAD_COUNT; i++) resetStats(i);
+}
+
+const PadStats& getStats(int pad) {
+  static PadStats emptyStats;
+  if (pad < 0 || pad >= DrumOS::Pads::PAD_COUNT) return emptyStats;
+  return stats[pad];
+}
+
+static void recordHit(int pad, int peak, int velocity) {
+  if (pad < 0 || pad >= DrumOS::Pads::PAD_COUNT) return;
+  PadStats& s = stats[pad];
+  s.hits++;
+  s.peakSum += peak;
+  s.velocitySum += velocity;
+  if (s.minPeak == 0 || peak < s.minPeak) s.minPeak = peak;
+  if (peak > s.maxPeak) s.maxPeak = peak;
+}
+
+static void printOneStats(int pad) {
+  if (pad < 0 || pad >= DrumOS::Pads::PAD_COUNT) return;
+  const PadStats& s = stats[pad];
+  uint32_t avgPeak = s.hits > 0 ? s.peakSum / s.hits : 0;
+  uint32_t avgVelocity = s.hits > 0 ? s.velocitySum / s.hits : 0;
+
+  Serial.print(DrumOS::Pads::pads[pad].name);
+  Serial.print(" hits=");
+  Serial.print(s.hits);
+  Serial.print(" minPeak=");
+  Serial.print(s.minPeak);
+  Serial.print(" avgPeak=");
+  Serial.print(avgPeak);
+  Serial.print(" maxPeak=");
+  Serial.print(s.maxPeak);
+  Serial.print(" avgVelocity=");
+  Serial.print(avgVelocity);
+  Serial.print(" crosstalk=");
+  Serial.print(s.crosstalkBlocked);
+  Serial.print(" retrigger=");
+  Serial.print(s.retriggerBlocked);
+  Serial.print(" noise=");
+  Serial.println(s.noiseRejected);
+}
+
+void printStats(int pad) {
+  printOneStats(pad);
+}
+
+void printStats() {
+  Serial.println("Trigger Stats:");
+  for (int i = 0; i < DrumOS::Pads::PAD_COUNT; i++) printOneStats(i);
+}
 
 void resetCrosstalkMatrix() {
   for (int source = 0; source < DrumOS::Pads::PAD_COUNT; source++) {
@@ -40,7 +105,6 @@ void resetCrosstalkMatrix() {
       crosstalkMatrix[source][target] = 0;
     }
   }
-
   crosstalkMatrix[DrumOS::Pads::KICK][DrumOS::Pads::HIHAT] = 15;
   crosstalkMatrix[DrumOS::Pads::SNARE][DrumOS::Pads::HITOM] = 25;
   crosstalkMatrix[DrumOS::Pads::HITOM][DrumOS::Pads::LOWTOM] = 35;
@@ -83,24 +147,23 @@ static bool isCrosstalk(int pad, int peak, unsigned long now) {
   if (pad == lastTriggeredPad) return false;
   if (now - lastTriggeredAt > CROSSTALK_WINDOW_MS) return false;
   if (lastTriggeredPeak <= 0) return false;
-
   int level = crosstalkMatrix[lastTriggeredPad][pad];
   if (level <= 0) return false;
-
   int ratio = (peak * 100) / lastTriggeredPeak;
   int allowedRatio = max(5, DEFAULT_CROSSTALK_RATIO_PERCENT - level);
-  return ratio < allowedRatio;
+  if (ratio < allowedRatio) {
+    stats[pad].crosstalkBlocked++;
+    return true;
+  }
+  return false;
 }
 
 static bool hasPeakStartedFalling(int pad, int value, unsigned long elapsedMs) {
   if (elapsedMs < MIN_PEAK_SCAN_MS) return false;
   auto& p = DrumOS::Pads::pads[pad];
   int fallDelta = max(MIN_PEAK_FALL_DELTA, (p.peak * PEAK_FALL_PERCENT) / 100);
-  if (previousValue[pad] - value >= fallDelta || p.peak - value >= fallDelta) {
-    fallingCount[pad]++;
-  } else {
-    fallingCount[pad] = 0;
-  }
+  if (previousValue[pad] - value >= fallDelta || p.peak - value >= fallDelta) fallingCount[pad]++;
+  else fallingCount[pad] = 0;
   return fallingCount[pad] >= REQUIRED_FALLING_SAMPLES;
 }
 
@@ -145,6 +208,7 @@ void begin() {
   lastTriggeredPeak = 0;
   lastTriggeredAt = 0;
   resetCrosstalkMatrix();
+  resetStats();
   for (int i = 0; i < DrumOS::Pads::PAD_COUNT; i++) {
     previousValue[i] = 0;
     fallingCount[i] = 0;
@@ -160,6 +224,7 @@ void triggerPad(int pad, int peak) {
   int volume = (dynamicVolume * p.volume) / 127;
   volume = constrain(volume, 1, 127);
   DrumOS::Audio::playBuffer(DrumOS::Voices::getBuffer(pad), DrumOS::Voices::getSamples(pad), volume);
+  recordHit(pad, peak, velocity);
   p.lastTrigger = millis();
   Serial.print(p.name);
   Serial.print(" peak=");
@@ -199,7 +264,10 @@ void process() {
       }
       case DrumOS::Pads::RETRIGGER_LOCK: {
         unsigned long elapsed = now - p.timer;
-        if (value > retriggerPeak[i]) retriggerPeak[i] = value;
+        if (value > retriggerPeak[i]) {
+          retriggerPeak[i] = value;
+          stats[i].retriggerBlocked++;
+        }
         bool lockExpired = elapsed >= (unsigned long)p.retriggerLockMs;
         bool signalReturnedToRest = value <= RETRIGGER_RESET_VALUE;
         if (lockExpired || signalReturnedToRest) {
