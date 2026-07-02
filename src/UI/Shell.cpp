@@ -55,6 +55,7 @@ static void printHelp() {
   Serial.println("deb kick 90         = debounce/mask do pad em ms");
   Serial.println("scan kick 5         = janela de captura do peak em ms");
   Serial.println("lock kick 35        = retrigger lock do pad em ms");
+  Serial.println("margin kick 80      = margem minima acima do threshold");
   Serial.println("curve kick soft     = curva: soft, linear, hard");
   Serial.println("xtalk show/reset    = matriz de crosstalk");
   Serial.println("xtalk kick snare 15 = definir crosstalk 0-100");
@@ -93,6 +94,8 @@ static void printStatus() {
     Serial.print(p.scanMs);
     Serial.print(" lock=");
     Serial.print(p.retriggerLockMs);
+    Serial.print(" margin=");
+    Serial.print(p.gateMargin);
     Serial.print(" curve=");
     Serial.println(curveToText(p.curve));
   }
@@ -126,6 +129,9 @@ static void handlePadNumberCommand(const String& command, const String& rest) {
   } else if (command == "lock") {
     p.retriggerLockMs = constrain(value, 0, 200);
     Serial.print("RetriggerLock ");
+  } else if (command == "margin") {
+    p.gateMargin = constrain(value, 0, 500);
+    Serial.print("Margin ");
   } else {
     return;
   }
@@ -140,21 +146,17 @@ static void handleXtalkCommand(String rest) {
   rest.trim();
   if (rest == "show") { DrumOS::Trigger::printCrosstalkMatrix(); return; }
   if (rest == "reset") { DrumOS::Trigger::resetCrosstalkMatrix(); Serial.println("Matriz de crosstalk restaurada"); return; }
-
   int s1 = rest.indexOf(' ');
   if (s1 < 0) { Serial.println("Uso: xtalk kick snare 15"); return; }
   int s2 = rest.indexOf(' ', s1 + 1);
   if (s2 < 0) { Serial.println("Uso: xtalk kick snare 15"); return; }
-
   String sourceText = rest.substring(0, s1);
   String targetText = rest.substring(s1 + 1, s2);
   int level = rest.substring(s2 + 1).toInt();
   int source = DrumOS::Pads::findByName(sourceText);
   int target = DrumOS::Pads::findByName(targetText);
-
   if (source < 0 || target < 0) { Serial.println("Pad invalido"); return; }
   if (source == target) { Serial.println("Origem e destino nao podem ser iguais"); return; }
-
   DrumOS::Trigger::setCrosstalkLevel(source, target, level);
   Serial.print("XTalk ");
   Serial.print(DrumOS::Pads::pads[source].name);
@@ -175,7 +177,6 @@ static void handleStatsCommand(String rest) {
 
 static bool handleScopeCommand(String rest) {
   rest.trim();
-
   if (rest.startsWith("graph ")) {
     String padText = rest.substring(6);
     padText.trim();
@@ -184,13 +185,11 @@ static bool handleScopeCommand(String rest) {
     DrumOS::Trigger::printScopeGraph(pad);
     return true;
   }
-
   if (rest == "off") {
     DrumOS::Trigger::setScopePad(-1);
     Serial.println("Scope desligado");
     return true;
   }
-
   int pad = DrumOS::Pads::findByName(rest);
   if (pad < 0) { Serial.println("Pad invalido"); return true; }
   DrumOS::Trigger::setScopePad(pad);
@@ -203,7 +202,6 @@ static void handleCommand(String cmd) {
   cmd.trim();
   cmd.toLowerCase();
   if (cmd.length() == 0) return;
-
   if (cmd == "help") { printHelp(); return; }
   if (cmd == "status") { printStatus(); return; }
   if (cmd == "save") { Serial.println(DrumOS::ConfigStore::savePads() ? "Configuracoes salvas" : "Erro ao salvar configuracoes"); return; }
@@ -211,48 +209,38 @@ static void handleCommand(String cmd) {
   if (cmd == "factory") { Serial.println(DrumOS::ConfigStore::factoryReset() ? "Padroes restaurados" : "Erro ao restaurar padroes"); return; }
   if (cmd == "click on") { DrumOS::Click::setEnabled(true); Serial.println("Click ligado"); return; }
   if (cmd == "click off") { DrumOS::Click::setEnabled(false); Serial.println("Click desligado"); return; }
-
   if (cmd.startsWith("bpm ")) {
     DrumOS::Click::setBpm(cmd.substring(4).toInt());
     Serial.print("BPM = ");
     Serial.println(DrumOS::Click::getBpm());
     return;
   }
-
   int space = cmd.indexOf(' ');
   String command = space >= 0 ? cmd.substring(0, space) : cmd;
   String rest = space >= 0 ? cmd.substring(space + 1) : "";
-
   if (command == "scope") { handleScopeCommand(rest); return; }
-
   if (command == "vol") {
     DrumOS::Audio::setMasterVolume(rest.toInt());
     Serial.print("Volume master = ");
     Serial.println(DrumOS::Audio::getMasterVolume());
     return;
   }
-
   if (command == "xtalk") { handleXtalkCommand(rest); return; }
   if (command == "stats") { handleStatsCommand(rest); return; }
-
-  if (command == "thr" || command == "max" || command == "deb" || command == "scan" || command == "lock") {
+  if (command == "thr" || command == "max" || command == "deb" || command == "scan" || command == "lock" || command == "margin") {
     handlePadNumberCommand(command, rest);
     return;
   }
-
   if (command == "curve") {
     int space2 = rest.indexOf(' ');
     if (space2 < 0) { Serial.println("Uso: curve kick soft"); return; }
-
     String padText = rest.substring(0, space2);
     String curveText = rest.substring(space2 + 1);
     curveText.trim();
     int pad = DrumOS::Pads::findByName(padText);
     if (pad < 0) { Serial.println("Pad invalido"); return; }
-
     DrumOS::Velocity::Curve curve;
     if (!parseCurve(curveText, curve)) { Serial.println("Curva invalida"); return; }
-
     DrumOS::Pads::pads[pad].curve = curve;
     DrumOS::Pads::resetRuntimeState(pad);
     Serial.print("Curve ");
@@ -261,7 +249,6 @@ static void handleCommand(String cmd) {
     Serial.println(curveToText(curve));
     return;
   }
-
   int pad = DrumOS::Pads::findByName(command);
   if (pad >= 0) {
     DrumOS::Pads::pads[pad].volume = constrain(rest.toInt(), 0, 127);
@@ -272,14 +259,12 @@ static void handleCommand(String cmd) {
     Serial.println(DrumOS::Pads::pads[pad].volume);
     return;
   }
-
   Serial.println("Comando desconhecido. Digite: help");
 }
 
 static void executeLine(String cmd) {
   cmd.trim();
   if (cmd.length() == 0) return;
-
   if (cmd == "1") DrumOS::Trigger::triggerPad(DrumOS::Pads::KICK, 4095);
   else if (cmd == "2") DrumOS::Trigger::triggerPad(DrumOS::Pads::SNARE, 4095);
   else if (cmd == "3") DrumOS::Trigger::triggerPad(DrumOS::Pads::HIHAT, 4095);
@@ -292,7 +277,6 @@ static void executeLine(String cmd) {
 void process() {
   while (Serial.available()) {
     char c = Serial.read();
-
     if (c == '\n' || c == '\r') {
       if (pos == 0) continue;
       Serial.println();
@@ -304,14 +288,11 @@ void process() {
       Serial.print("> ");
       continue;
     }
-
     if (c == 8 || c == 127) {
       if (pos > 0) { pos--; line[pos] = 0; }
       continue;
     }
-
     if (c < 32 || c > 126) continue;
-
     if (pos < sizeof(line) - 1) {
       line[pos++] = c;
       line[pos] = 0;
