@@ -156,6 +156,12 @@ static bool isCrosstalk(int pad, int peak, unsigned long now) {
   return false;
 }
 
+static bool isBelowGate(int pad, int peak) {
+  auto& p = DrumOS::Pads::pads[pad];
+  int minimumPeak = constrain(p.threshold + p.gateMargin, 0, 4095);
+  return peak < minimumPeak;
+}
+
 static bool hasPeakStartedFalling(int pad, int value, unsigned long elapsedMs) {
   if (elapsedMs < MIN_PEAK_SCAN_MS) return false;
   auto& p = DrumOS::Pads::pads[pad];
@@ -175,6 +181,14 @@ static void startMaskTime(int pad, unsigned long now) {
 
 static void finishPeakScan(int pad, unsigned long now) {
   auto& p = DrumOS::Pads::pads[pad];
+
+  if (isBelowGate(pad, p.peak)) {
+    stats[pad].noiseRejected++;
+    startMaskTime(pad, now);
+    p.peak = 0;
+    return;
+  }
+
   if (!isCrosstalk(pad, p.peak, now)) {
     triggerPad(pad, p.peak);
     lastTriggeredPad = pad;
