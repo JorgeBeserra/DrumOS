@@ -33,6 +33,7 @@ struct PadConfig {
   int debounceMs;
   int scanMs;
   int retriggerLockMs;
+  int gateMargin;
   unsigned long lastTrigger;
   PadState state;
   unsigned long timer;
